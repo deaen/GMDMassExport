@@ -1,29 +1,48 @@
 from pathlib import Path
-import time
-import os
-import base64
-import gzip
+from time import gmtime, strftime
+from os.path import getmtime
+from base64 import urlsafe_b64decode
+from gzip import decompress
+from platform import system
+from Crypto.Cipher import AES
 import xml.etree.ElementTree as ET
 
 def xor(string: str, key: int) -> str:
 	return ("").join(chr(ord(char) ^ key) for char in string)
 
 def decrypt_data(data: str) -> str:
-	base64_decoded = base64.urlsafe_b64decode(xor(data, key=11).encode())
-	decompressed = gzip.decompress(base64_decoded)
+	base64_decoded = urlsafe_b64decode(xor(data, key=11).encode())
+	decompressed = decompress(base64_decoded)
 	return decompressed.decode()
 
-def getUnqiuePath(path) -> Path:
-    filename, extension = os.path.splitext(path)
-    counter = 2
-    while os.path.exists(path):
-        path = "{} ({}){}".format(filename, counter, extension)
-        counter += 1
+KEY = (
+    b"\x69\x70\x75\x39\x54\x55\x76\x35\x34\x79\x76\x5d\x69\x73\x46\x4d"
+    b"\x68\x35\x40\x3b\x74\x2e\x35\x77\x33\x34\x45\x32\x52\x79\x40\x7b"
+)
 
-    return Path(path)
+def remove_pad(data: bytes) -> bytes:
+    last = data[-1]
+    if last < 16:
+        data = bytes(data[--last])
+    return data
+
+def mac_decrypt(data: bytes) -> str:
+    cipher = AES.new(KEY, AES.MODE_ECB)
+    return remove_pad(cipher.decrypt(data)).decode()
+
+def getUniquePath(path_str) -> Path:
+	path = Path(path_str)
+	counter = 2
+	while path.exists():
+		path = Path("{} ({}){}".format(path.with_suffix(""), counter, path.suffix))
+		counter += 1
+
+	return path
 
 files: list[Path]
 createSubs: bool
+total_level_count = 0
+
 print("-"*100)
 print("Welcome to GMDMassExport!\nthis script lets you export all your editor levels to gmd files!! pretty awesome")
 print("-"*100)
@@ -72,17 +91,16 @@ Path.mkdir(output_path, parents=True, exist_ok=True)
 
 for file in files:
 	if file.is_file():
-		folder_path = output_path / time.strftime("%Y-%m-%d %H-%M-%S", time.gmtime(os.path.getmtime(file))) if createSubs else output_path
+		folder_path = output_path / strftime("%Y-%m-%d %H-%M-%S", gmtime(getmtime(file))) if createSubs else output_path
 		Path.mkdir(folder_path, parents=True, exist_ok=True)
 
-		root = ET.fromstring(decrypt_data(file.read_text()))
+		root = ET.fromstring(decrypt_data(file.read_text()) if system() != "Darwin" else mac_decrypt(file.read_bytes()))
 		file_dict = root.find("dict")
 
 		if file_dict is not None and file_dict.findtext("k") == "LLM_01":
 			llm_01 = file_dict.find("d")
 
 			if llm_01 is not None:
-				level_count = 1
 
 				for level in llm_01.findall("d"):
 					root = ET.Element("plist", {"version": "1.0", "gjver": "2.0"})
@@ -99,14 +117,12 @@ for file in files:
 							next_is_name = True
 						
 						gmd.append(elem)
-					if name == "":
-						name = "level_" + str(level_count) + ".gmd"
-
-					gmd_file = getUnqiuePath(folder_path / name)
+					gmd_file = getUniquePath(folder_path / name)
 					gmd_file.write_bytes(b'<?xml version="1.0"?>' + ET.tostring(root, encoding="utf-8"))
 					print("Successfully exported {}!".format(gmd_file.name))
+					total_level_count += 1
 
 print("-"*100)
-print("Finished Exporting!! Good bye")
+print("exported {} levels!! have fun good bye".format(total_level_count))
 print("-"*100)
 input("Press any key to exit...")
