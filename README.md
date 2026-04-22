@@ -9,8 +9,8 @@ a simple script that exports Geometry Dash levels from multiple *.dat files to .
 
 ## How to use
 1. Download and run either the exe on Windows or just the script on other platforms
-2. Enter the path of the folder that contains your save files
-3. Export all your levels
+2. Enter the path of the folder that contains all your save files
+3. Export your levels!!
 
 you can then later load them in-game using[GDShare](https://geode-sdk.org/mods/hjfod.gdshare)!
 
