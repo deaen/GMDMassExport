@@ -44,16 +44,16 @@ createSubs: bool
 total_level_count = 0
 
 print("-"*100)
-print("Welcome to GMDMassExport!\nthis script lets you export all your editor levels to gmd files!! pretty awesome")
+print("Welcome to GMDMassExport!\nthis script lets you export all your editor levels from multiple save files to gmd files at once!! pretty awesome")
 print("-"*100)
-print("Please enter the path to the folder that contains the CCLocalLevels.dat files\n(hint: it's ok if those files are in multiple folders inside this parent folder!)")
+print("Please enter the path to the folder that contains the *.dat files\n(hint: it's ok if those files are in multiple folders inside this parent folder!)")
 
 while True:
 	folder_path = Path(input("Folder Path: "))
 	if folder_path.exists() and folder_path.is_dir():
-		files = list(folder_path.rglob("CCLocalLevels.dat"))
+		files = list(folder_path.rglob("*.dat"))
 		if len(files) < 1:
-			print("This folder and it's subfolders do not contain any CCLocalLevels.dat files, please try again...")	
+			print("This folder and it's subfolders do not contain any *.dat files, please try again...")	
 		else:
 			break
 	elif not folder_path.is_dir():
@@ -62,7 +62,7 @@ while True:
 		print("This path does not exist, make sure you entered it correctly and try again...")
 
 while True:
-	ok = input("Found {} CCLocalLevels.dat(s)!\nDo you want to sort the exported .gmd files to folders based on date (instead of 1 big folder)? (Y/n): ".format(len(files)))
+	ok = input("Found {} *.dat(s)!\nDo you want to sort the exported .gmd files to folders based on date (instead of 1 big folder)? (Y/n): ".format(len(files)))
 	if ok.upper() == "Y" or ok.upper() == "YES" or ok == "":
 		createSubs = True
 		break
@@ -91,10 +91,14 @@ Path.mkdir(output_path, parents=True, exist_ok=True)
 
 for file in files:
 	if file.is_file():
-		folder_path = output_path / strftime("%Y-%m-%d %H-%M-%S", gmtime(getmtime(file))) if createSubs else output_path
+		folder_path = output_path / "{} {}".format(file.stem, strftime("%Y-%m-%d %H-%M-%S", gmtime(getmtime(file)))) if createSubs else output_path
 		Path.mkdir(folder_path, parents=True, exist_ok=True)
 
-		root = ET.fromstring(decrypt_data(file.read_text()) if system() != "Darwin" else mac_decrypt(file.read_bytes()))
+		try:
+			root = ET.fromstring(decrypt_data(file.read_text()) if system() != "Darwin" else mac_decrypt(file.read_bytes()))
+		except:
+			continue
+
 		file_dict = root.find("dict")
 
 		if file_dict is not None and file_dict.findtext("k") == "LLM_01":
